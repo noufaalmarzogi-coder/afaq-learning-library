@@ -62,7 +62,7 @@ def main():
     if not records:raise SystemExit('No games could be prepared; original library left intact')
     index=ROOT/'index.html'
     html=index.read_text(encoding='utf-8')
-    html,n=re.subn(r'const DATA=\[.*?\];\s*// قائمة الألعاب التعليمية عند إضافتها للمكتبة\.',lambda m:'const DATA='+json.dumps(records,ensure_ascii=False,separators=(',',':'))+'; // قائمة الألعاب التعليمية عند إضافتها للمكتبة.',html,count=1,flags=re.S)
+    html,n=re.subn(r'const DATA=\[.*?\];\s*//[^\n]*',lambda m:'const DATA='+json.dumps(records,ensure_ascii=False,separators=(',',':'))+'; // قائمة الألعاب التعليمية عند إضافتها للمكتبة.',html,count=1,flags=re.S)
     if n!=1:raise SystemExit('Library format changed; index.html not replaced')
     index.write_text(html,encoding='utf-8')
     print('AVAILABLE GAMES:',len(records))
