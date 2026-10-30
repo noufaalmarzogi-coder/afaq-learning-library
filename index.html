@@ -22,7 +22,7 @@ header{background:linear-gradient(125deg,#066d7e,#0b9b9e 77%,#3db7b0);color:whit
 </main><section id="about" class="about"><div class="wrap"><h2>عن مكتبة أفق التعلّم</h2><p>مكتبة رقمية مدرسية تشاركية تجمع الألعاب التعليمية والموارد والأفكار والممارسات المهنية، بهدف دعم تعلم الطلاب والطالبات وإثراء تبادل المعلومات والخبرات والمعارف بين المعلمات.</p></div></section><footer>مكتبة أفق التعلّم • إعداد وتصميم وتطوير: نوف البقمي • بقيادة الأستاذة غادة الدحيلان</footer>
 <script>
 'use strict';
-const DATA=[]; // تُضاف هنا النسخ المستقلة الجديدة بعد نشرها بروابطها الجديدة فقط.
+const DATA=[{"grade":"3","subject":"reading","title":"مغامرة الفرخ الصغير","desc":"لعبة تعليمية تفاعلية","emoji":"🐥","url":"games/grade3-reading/"},{"grade":"3","subject":"math","title":"مغامرة كنز الأرقام","desc":"لعبة تعليمية تفاعلية","emoji":"🔢","url":"games/grade3-math/"},{"grade":"6","subject":"reading","title":"مغامرة أسرار الكلمات","desc":"لعبة تعليمية تفاعلية","emoji":"📖","url":"games/grade6-reading/"},{"grade":"6","subject":"math","title":"مغامرة نجمات الرياضيات","desc":"لعبة تعليمية تفاعلية","emoji":"⭐","url":"games/grade6-math/"},{"grade":"6","subject":"science","title":"مغامرة العلوم","desc":"لعبة تعليمية تفاعلية","emoji":"🔬","url":"games/grade6-science/"}]; // قائمة الألعاب التعليمية عند إضافتها للمكتبة.
 const SUBJECTS={reading:'القراءة',math:'الرياضيات',science:'العلوم'};
 let activeGrade=null,activeSubject='all';const panel=document.getElementById('gamePanel');
 function element(tag,cls,txt){const el=document.createElement(tag);if(cls)el.className=cls;if(txt!==undefined)el.textContent=txt;return el}
