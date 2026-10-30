@@ -28,6 +28,41 @@ def change_html(s,grade,subject):
         else:
             s=s.replace('الحصة '+WORDS[i-1],f'المرحلة {word}')
     s=s.replace('برنامج اليوم الواحد لنافس','مكتبة أفق التعلّم').replace('كلنا داعمون','أفق التعلّم').replace('جسور التعلم والتواصل','أفق التعلّم')
+    # Standalone-library edition: the library card is the single entry point.
+    # Hide (rather than destroy) start-page nodes if event handlers still reference them.
+    if subject=='reading' and grade=='3':
+        s=s.replace('id="gameWrap" style="display:none"','id="gameWrap" style="display:block"')
+        s=s.replace('</style>', '#landing{display:none!important}#gameWrap{display:block!important}</style>',1)
+        # Keep the hidden start element for its pre-existing click handler.
+    elif subject=='math' and grade=='3':
+        s=s.replace('id="gameMain" style="display:none"','id="gameMain" style="display:block"')
+        s=s.replace('</style>', '#landing{display:none!important}#gameMain{display:block!important}</style>',1)
+        # Seven clear sequential stages, rather than a stage zero microphone or lesson labels.
+        s=s.replace('i===0?"🎤 المرحلة الأولى":"الحصة "+["","الأولى","الثانية","الثالثة","الرابعة","الخامسة","السادسة"][i]',
+                    '"المرحلة "+["الأولى","الثانية","الثالثة","الرابعة","الخامسة","السادسة","السابعة"][i]')
+        s=s.replace('سؤالان في المرحلة الأولى، ثم سؤالان بعد كل حصة.', 'سؤالان في كل مرحلة من المراحل السبع.')
+    elif subject=='math' and grade=='6':
+        # Preserve the audio button by moving it out of the decorative hero.
+        m=re.search(r'<button class="sound" id="soundBtn"[^>]*>.*?</button>',s,re.S)
+        if m:
+            button=m.group(0)
+            s=re.sub(r'<section class="hero">.*?</section>', '', s, count=1, flags=re.S)
+            s=s.replace('<h2 class="stage-heading"', '<div class="library-sound">'+button+'</div><h2 class="stage-heading"',1)
+    # Other games: remove only the clearly isolated introductory panel when identifiable.
+    if grade=='6' and subject in ('reading','science'):
+        s=re.sub(r'<div class="program-credit"[^>]*>.*?</div>\s*</div>', '',s,count=1,flags=re.S)
+        s=re.sub(r'<div class="cover-credits"[^>]*>.*?</div>\s*</div>', '',s,count=1,flags=re.S)
+    # Avoid duplicated library and author attribution in all five game copies.
+    s=re.sub(r'<div class="initiative">.*?</div>', '',s,flags=re.S)
+    s=re.sub(r'<div class="program-credit">.*?</div>\s*</div>', '',s,flags=re.S)
+    s=re.sub(r'<div class="credit author">.*?</div>', '',s,flags=re.S)
+    # Remove explicit radio/lesson labels without altering any questions or their answers.
+    for i,word in enumerate(WORDS):
+        if i==0:
+            s=s.replace('🎤 المرحلة الأولى','المرحلة الأولى')
+        else:
+            s=s.replace('الحصة '+WORDS[i-1], 'المرحلة '+word)
+    s=s.replace('بعد كل حصة','في كل مرحلة').replace('الإذاعة الصباحية','المرحلة الأولى').replace('الإذاعة','المرحلة الأولى')
     # Prevent original localStorage progress from being shared with the independent version.
     s=re.sub(r'([\"\'])duck_v2\1', '"afaq_duck_v1"', s)
     return s
@@ -62,7 +97,7 @@ def main():
     if not records:raise SystemExit('No games could be prepared; original library left intact')
     index=ROOT/'index.html'
     html=index.read_text(encoding='utf-8')
-    html,n=re.subn(r'const DATA=\[.*?\];\s*//[^\n]*',lambda m:'const DATA='+json.dumps(records,ensure_ascii=False,separators=(',',':'))+'; // قائمة الألعاب التعليمية عند إضافتها للمكتبة.',html,count=1,flags=re.S)
+    html,n=re.subn(r'const DATA=\[.*?\];\s*// قائمة الألعاب التعليمية عند إضافتها للمكتبة\.',lambda m:'const DATA='+json.dumps(records,ensure_ascii=False,separators=(',',':'))+'; // قائمة الألعاب التعليمية عند إضافتها للمكتبة.',html,count=1,flags=re.S)
     if n!=1:raise SystemExit('Library format changed; index.html not replaced')
     index.write_text(html,encoding='utf-8')
     print('AVAILABLE GAMES:',len(records))
