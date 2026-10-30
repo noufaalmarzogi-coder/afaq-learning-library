@@ -64,7 +64,7 @@ def change_html(s,grade,subject):
             s=s.replace('الحصة '+WORDS[i-1], 'المرحلة '+word)
     s=s.replace('بعد كل حصة','في كل مرحلة').replace('الإذاعة الصباحية','المرحلة الأولى').replace('الإذاعة','المرحلة الأولى')
     # Prevent original localStorage progress from being shared with the independent version.
-    s=re.sub(r'([\"\'])duck_v2\1', '"afaq_duck_v1"', s)
+    s=re.sub(r'(["\'])duck_v2\1', '"afaq_duck_v1"', s)
     return s
 
 def main():
@@ -97,7 +97,7 @@ def main():
     if not records:raise SystemExit('No games could be prepared; original library left intact')
     index=ROOT/'index.html'
     html=index.read_text(encoding='utf-8')
-    html,n=re.subn(r'const DATA=\[.*?\];\s*// قائمة الألعاب التعليمية عند إضافتها للمكتبة\.',lambda m:'const DATA='+json.dumps(records,ensure_ascii=False,separators=(',',':'))+'; // قائمة الألعاب التعليمية عند إضافتها للمكتبة.',html,count=1,flags=re.S)
+    html,n=re.subn(r'const DATA=\[.*?\];\s*//[^\n]*',lambda m:'const DATA='+json.dumps(records,ensure_ascii=False,separators=(',',':'))+'; // الألعاب المنشورة في أفق التعلّم.',html,count=1,flags=re.S)
     if n!=1:raise SystemExit('Library format changed; index.html not replaced')
     index.write_text(html,encoding='utf-8')
     print('AVAILABLE GAMES:',len(records))
