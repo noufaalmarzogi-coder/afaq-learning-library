@@ -169,4 +169,31 @@ function nextQuestion(){
  confetti();
 }
 function confetti(){let c=document.getElementById('confetti');c.innerHTML='';for(let i=0;i<65;i++){let e=document.createElement('span');e.className='piece';e.textContent=['✨','🌟','🌸','💜','⭐'][i%5];e.style.left=Math.random()*100+'%';e.style.animationDuration=(2+Math.random()*3)+'s';e.style.animationDelay=Math.random()*.7+'s';e.style.fontSize=(14+Math.random()*19)+'px';c.appendChild(e)}setTimeout(()=>c.innerHTML='',6500)}renderStages();
-</script></body></html>
+</script><script id="afaq-auto-start">
+(function(){
+  if (window.__afaqAutoStartInstalled) return;
+  window.__afaqAutoStartInstalled = true;
+  let fired=false, attempts=0;
+  const matches = el => {
+    const t=(el.textContent||el.value||el.getAttribute('aria-label')||'').replace(/\s+/g,' ').trim();
+    return /^(?:▶\s*)?(?:ابدأ|ابدئي|إبدأ|إبدئي)\s*(?:اللعبة|اللعب|المغامرة|الرحلة|الآن)?\s*(?:▶|⏵|►)?$/u.test(t) ||
+      /^(?:start\s*(?:game|playing|adventure)?|play)$/i.test(t);
+  };
+  function launch(){
+    if(fired || attempts++ > 24) return;
+    const selectors=['#startBtn','#startGameBtn','#btnStart','#playBtn',
+      '.start-btn','.startBtn','.btn-start','.play-btn',
+      '[data-action="start"]','button[onclick*="start"]',
+      'a[onclick*="start"]'];
+    const candidates=[...document.querySelectorAll(selectors.join(',')),
+      ...document.querySelectorAll('button,a,[role="button"],input[type="button"]')];
+    const el=candidates.find(x=>matches(x)) || candidates.find(x=>
+      /^(?:start|play)(?:Game)?$/i.test(x.id||''));
+    if(el){ fired=true; el.click(); return; }
+    setTimeout(launch,250);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',launch,{once:true});
+  else launch();
+})();
+</script>
+</body></html>
