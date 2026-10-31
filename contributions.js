@@ -218,3 +218,20 @@ form.addEventListener("submit", async event => {
     say(errorText(error));
   } finally { submit.disabled = false; }
 }, true);
+
+// تنسيق موحد للمشاركات المنشورة في القسمين
+const exchangeHeading = el("h3", "مشاركات المعلمات", "afaq-published-heading");
+const resourcesHeading = el("h3", "الموارد التعليمية المنشورة", "afaq-published-heading");
+
+const exchangeNotice = exchange.querySelector(".notice");
+if (exchangeNotice) exchangeNotice.remove();
+
+const oldResourcesPanel = resources.querySelector(".panel");
+if (oldResourcesPanel) oldResourcesPanel.remove();
+
+exchangeList.before(exchangeHeading);
+resourceList.before(resourcesHeading);
+
+const layoutStyle = document.createElement("style");
+layoutStyle.textContent = ".afaq-published-heading{color:#17384b;font-size:1.35rem;margin:26px 0 10px;padding-bottom:10px;border-bottom:2px solid #c6e0df}.afaq-posts{margin-top:12px}.afaq-posts .afaq-muted{grid-column:1/-1;padding:18px;border-radius:14px;background:#f3fbfa;text-align:center}";
+document.head.append(layoutStyle);
