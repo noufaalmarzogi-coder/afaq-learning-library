@@ -235,3 +235,77 @@ resourceList.before(resourcesHeading);
 const layoutStyle = document.createElement("style");
 layoutStyle.textContent = ".afaq-published-heading{color:#17384b;font-size:1.35rem;margin:26px 0 10px;padding-bottom:10px;border-bottom:2px solid #c6e0df}.afaq-posts{margin-top:12px}.afaq-posts .afaq-muted{grid-column:1/-1;padding:18px;border-radius:14px;background:#f3fbfa;text-align:center}";
 document.head.append(layoutStyle);
+
+// البحث والتصفية في تبادل الخبرات وبنك الموارد
+const searchStyle = document.createElement("style");
+searchStyle.textContent = ".afaq-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;padding:15px;margin:12px 0;background:#f3fbfa;border:1px solid #c6e0df;border-radius:15px}.afaq-filters input,.afaq-filters select{width:100%;min-width:0;padding:11px;border:1px solid #aecfcf;border-radius:10px;background:white;color:#17384b;font:inherit}.afaq-result-count{grid-column:1/-1;color:#506e75;font-size:.9rem}.afaq-post[hidden]{display:none!important}";
+document.head.append(searchStyle);
+
+function makeFilters(list, title) {
+  const bar = document.createElement("div");
+  bar.className = "afaq-filters";
+  bar.setAttribute("aria-label", "البحث في " + title);
+
+  const search = document.createElement("input");
+  search.type = "search";
+  search.placeholder = "ابحثي بالعنوان أو اسم المعلمة";
+  search.setAttribute("aria-label", "البحث في " + title);
+
+  function makeSelect(sourceId, allLabel) {
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", allLabel);
+    select.add(new Option(allLabel, ""));
+    const source = document.getElementById(sourceId);
+    if (source) {
+      [...source.options].forEach(option => {
+        if (option.value && ![...select.options].some(o => o.value === option.value)) {
+          select.add(new Option(option.textContent.trim(), option.value));
+        }
+      });
+    }
+    return select;
+  }
+
+  const grade = makeSelect("participationGrade", "جميع الصفوف");
+  const type = makeSelect("type", "جميع أنواع المشاركات");
+  const count = document.createElement("div");
+  count.className = "afaq-result-count";
+  count.setAttribute("aria-live", "polite");
+  bar.append(search, grade, type, count);
+  list.before(bar);
+
+  function normalize(value) {
+    return String(value || "").normalize("NFKC")
+      .replace(/[\u064B-\u065F\u0670]/g, "")
+      .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي")
+      .toLocaleLowerCase("ar").trim();
+  }
+
+  function refresh() {
+    const cards = [...list.querySelectorAll(".afaq-post")];
+    let visible = 0;
+    cards.forEach(card => {
+      const meta = normalize(card.querySelector("small")?.textContent);
+      const text = normalize(card.textContent);
+      const matches = text.includes(normalize(search.value))
+        && (!grade.value || meta.includes(normalize(grade.selectedOptions[0].text)))
+        && (!type.value || meta.includes(normalize(type.selectedOptions[0].text)));
+      if (card.hidden === matches) card.hidden = !matches;
+      if (matches) visible++;
+    });
+    count.textContent = cards.length
+      ? "النتائج: " + visible + " من " + cards.length
+        + (visible === 0 ? " — لا توجد مشاركات مطابقة." : "")
+      : "لا توجد مشاركات منشورة حالياً.";
+  }
+
+  [search, grade, type].forEach(control => {
+    control.addEventListener("input", refresh);
+    control.addEventListener("change", refresh);
+  });
+  new MutationObserver(refresh).observe(list, {childList:true});
+  refresh();
+}
+
+makeFilters(exchangeList, "مشاركات المعلمات");
+makeFilters(resourceList, "الموارد التعليمية المنشورة");
