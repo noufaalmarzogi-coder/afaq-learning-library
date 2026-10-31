@@ -27,6 +27,14 @@ css.textContent = `
 .afaq-post a{color:#087b86;text-decoration:underline}
 .afaq-admin{margin:18px 0;padding:15px;border:2px solid #087b86;border-radius:15px}
 .afaq-admin-item{border-bottom:1px solid #ccc;padding:12px 0}
+.afaq-edit-form{direction:rtl;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:16px;margin:16px 0;border:1px solid #c6e0df;border-radius:15px;background:#f3fbfa}
+.afaq-edit-form[hidden]{display:none}
+.afaq-edit-form label{display:flex;flex-direction:column;gap:6px;min-width:0;color:#17384b}
+.afaq-edit-form input,.afaq-edit-form select,.afaq-edit-form textarea{box-sizing:border-box;width:100%;min-width:0;padding:11px;border:1px solid #aecfcf;border-radius:10px;background:white;color:#17384b;font:inherit;font-size:16px}
+.afaq-edit-form textarea{resize:vertical;min-height:130px}
+.afaq-edit-wide{grid-column:1/-1}
+.afaq-edit-status{white-space:pre-line;overflow-wrap:anywhere;color:#17384b}
+@media(max-width:600px){.afaq-edit-form{grid-template-columns:minmax(0,1fr);padding:12px}.afaq-edit-form button{width:100%;box-sizing:border-box;margin:5px 0}}
 .afaq-muted{color:#66757a;font-size:.92em}
 `;
 document.head.append(css);
@@ -124,6 +132,124 @@ function canManage(data) {
   return !!user && (isAdmin() || (user.emailVerified && data.authorUid === user.uid));
 }
 
+// A single editor outside the live list preserves entered text during snapshots.
+const editStatus = el("p", "", "afaq-edit-status");
+editStatus.setAttribute("role", "status");
+editStatus.setAttribute("aria-live", "polite");
+const editForm = el("form", undefined, "afaq-edit-form");
+editForm.hidden = true;
+editForm.dir = "rtl";
+editForm.setAttribute("aria-label", "تعديل المشاركة");
+const editHeading = el("h3", "تعديل المشاركة", "afaq-edit-wide");
+editForm.append(editHeading);
+const editFields = {};
+for (const [key, title, sourceId] of [
+  ["teacher", "اسم المعلمة"], ["type", "نوع المشاركة", "type"],
+  ["grade", "الصف المستهدف", "participationGrade"], ["title", "عنوان المشاركة"],
+  ["description", "وصف المشاركة"], ["url", "الرابط (اختياري)"]
+]) {
+  const label = el("label", title);
+  const field = document.createElement(sourceId ? "select" : key === "description" ? "textarea" : "input");
+  field.name = key;
+  if (sourceId) {
+    for (const option of document.getElementById(sourceId).options) {
+      if (option.value) field.add(new Option(option.textContent, option.value));
+    }
+  } else {
+    if (key !== "description") field.type = key === "url" ? "url" : "text";
+    field.maxLength = {teacher:100, title:150, description:1500, url:500}[key];
+    if (key !== "url") field.minLength = {teacher:2, title:3, description:10}[key];
+  }
+  field.required = key !== "url";
+  if (key === "url") { field.dir = "ltr"; field.placeholder = "https://"; }
+  if (key === "description" || key === "url") label.className = "afaq-edit-wide";
+  label.append(field);
+  editFields[key] = field;
+  editForm.append(label);
+}
+const editActions = el("div", undefined, "afaq-edit-wide");
+const saveEdit = el("button", "حفظ التعديلات");
+saveEdit.type = "submit";
+const cancelEdit = el("button", "إلغاء");
+cancelEdit.type = "button";
+editActions.append(saveEdit, cancelEdit);
+editForm.append(editActions);
+adminList.before(editStatus, editForm);
+let activeEdit = null;
+let editingUid = null;
+let editGeneration = 0;
+let editSaving = false;
+function closeEditor() {
+  activeEdit = null;
+  editingUid = null;
+  editGeneration++;
+  editSaving = false;
+  editForm.hidden = true;
+  editForm.reset();
+  [...editForm.elements].forEach(control => { control.disabled = false; });
+}
+function openEditor(record) {
+  if (editSaving || !canManage(record.data())) return;
+  activeEdit = record;
+  editingUid = user.uid;
+  editGeneration++;
+  editStatus.textContent = "";
+  for (const [key, field] of Object.entries(editFields)) field.value = record.data()[key] || "";
+  editForm.hidden = false;
+  editFields.teacher.focus();
+  editForm.scrollIntoView?.({behavior:"smooth", block:"nearest"});
+}
+cancelEdit.addEventListener("click", () => {
+  if (editSaving) return;
+  closeEditor();
+  editStatus.textContent = "تم إلغاء التعديل دون حفظ.";
+});
+editForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  if (editSaving) return;
+  if (!activeEdit || user?.uid !== editingUid || !canManage(activeEdit.data())) {
+    editStatus.textContent = "لا تملكين صلاحية تعديل هذه المشاركة. سجّلي الدخول بالحساب المناسب.";
+    return;
+  }
+  if (!editForm.reportValidity()) return;
+  const changes = Object.fromEntries(Object.entries(editFields).map(([key, field]) => [key, field.value.trim()]));
+  if (changes.teacher.length < 2 || changes.teacher.length > 100
+    || changes.title.length < 3 || changes.title.length > 150
+    || changes.description.length < 10 || changes.description.length > 1500) {
+    editStatus.textContent = "الاسم من حرفين إلى ١٠٠، والعنوان من ٣ إلى ١٥٠، والوصف من ١٠ إلى ١٥٠٠ حرف.";
+    return;
+  }
+  if (changes.url.length > 500 || (changes.url && !/^https:\/\//.test(changes.url))) {
+    editStatus.textContent = "يجب أن يبدأ الرابط بـ https:// وألا يتجاوز ٥٠٠ حرف.";
+    return;
+  }
+  for (const key of ["type", "grade"]) {
+    if (![...editFields[key].options].some(option => option.value === changes[key])) {
+      editStatus.textContent = "يرجى اختيار نوع المشاركة والصف من الخيارات المتاحة.";
+      return;
+    }
+  }
+  const generation = editGeneration;
+  const record = activeEdit;
+  editSaving = true;
+  [...editForm.elements].forEach(control => { control.disabled = true; });
+  editStatus.textContent = "جارٍ حفظ التعديلات...";
+  try {
+    await updateDoc(doc(db, "contributions", record.id), changes);
+    if (generation !== editGeneration) return;
+    closeEditor();
+    editStatus.textContent = "تم حفظ التعديلات بنجاح.";
+    say("تم تعديل المشاركة بنجاح.");
+  } catch (error) {
+    if (generation === editGeneration) editStatus.textContent = errorText(error);
+  } finally {
+    if (generation === editGeneration) {
+      editSaving = false;
+      [...editForm.elements].forEach(control => { control.disabled = false; });
+    }
+  }
+});
+
 function managementButtons(record) {
   const data = record.data();
   const actions = el("div");
@@ -131,42 +257,8 @@ function managementButtons(record) {
   const remove = el("button", "حذف");
   edit.type = remove.type = "button";
   remove.style.background = "#a63232";
-  edit.addEventListener("click", async () => {
-    if (!canManage(data)) return;
-    const fields = [
-      ["teacher", "اسم المعلمة"], ["title", "عنوان المشاركة"],
-      ["description", "وصف المشاركة"], ["url", "الرابط (اختياري)"],
-      ["type", "نوع المشاركة"], ["grade", "الصف"]
-    ];
-    const changes = {};
-    for (const [key, label] of fields) {
-      const value = prompt(label, data[key] || "");
-      if (value === null) return;
-      changes[key] = value.trim();
-    }
-    if (changes.teacher.length < 2 || changes.teacher.length > 100
-      || changes.title.length < 3 || changes.title.length > 150
-      || changes.description.length < 10 || changes.description.length > 1500) {
-      alert("الاسم من حرفين إلى ١٠٠، والعنوان من ٣ إلى ١٥٠، والوصف من ١٠ إلى ١٥٠٠ حرف.");
-      return;
-    }
-    if (changes.url.length > 500 || (changes.url && !/^https:\/\//.test(changes.url))) {
-      alert("يجب أن يبدأ الرابط بـ https:// وألا يتجاوز ٥٠٠ حرف.");
-      return;
-    }
-    for (const [key, sourceId] of [["type", "type"], ["grade", "participationGrade"]]) {
-      const values = [...document.getElementById(sourceId).options].map(option => option.value);
-      if (!changes[key] || !values.includes(changes[key])) {
-        alert("يرجى استخدام أحد الخيارات المتاحة في نموذج المشاركة للنوع والصف.");
-        return;
-      }
-    }
-    edit.disabled = remove.disabled = true;
-    try {
-      await updateDoc(doc(db, "contributions", record.id), changes);
-      say("تم تعديل المشاركة بنجاح.");
-    } catch (error) { alert(errorText(error)); }
-    finally { edit.disabled = remove.disabled = false; }
+  edit.addEventListener("click", () => {
+    if (canManage(data)) openEditor(record);
   });
   remove.addEventListener("click", async () => {
     if (!canManage(data) || !confirm("هل تريدين حذف المشاركة «" + data.title + "» نهائياً؟ لا يمكن التراجع.")) return;
@@ -239,6 +331,8 @@ onSnapshot(query(posts, where("visible","==",true)), renderPublic,
   error => exchangeList.replaceChildren(el("p",errorText(error))));
 
 onAuthStateChanged(auth, current => {
+  closeEditor();
+  editStatus.textContent = "";
   user = current;
   if (publicSnapshot) renderPublic(publicSnapshot);
   login.hidden = !!user;
