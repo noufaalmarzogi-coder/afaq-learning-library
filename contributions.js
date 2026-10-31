@@ -40,6 +40,12 @@ function isAdmin() { return !!user && user.uid === ADMIN_UID; }
 function say(message) { status.textContent = message; }
 function errorText(error) {
   const code = error?.code || "";
+  if (code === "auth/unauthorized-domain") return "نطاق المكتبة غير مصرح به لتسجيل الدخول. يجب إضافته في Firebase Console ضمن Authentication ثم Settings ثم Authorized domains.";
+  if (code === "auth/operation-not-allowed") return "تسجيل الدخول باستخدام Google غير مفعّل في إعدادات Firebase Authentication.";
+  if (code === "auth/popup-closed-by-user") return "أُغلقت نافذة تسجيل الدخول قبل اكتماله. إذا ظهرت صفحة بيضاء، افتحي المكتبة في متصفح مستقل واسمحي بالنوافذ المنبثقة، ثم حاولي مجدداً.";
+  if (code === "auth/cancelled-popup-request") return "أُلغيت محاولة تسجيل الدخول بسبب فتح محاولة أخرى. حاولي مجدداً من نافذة واحدة.";
+  if (code === "auth/web-storage-unsupported") return "تسجيل الدخول يحتاج إلى تخزين المتصفح. اسمحي ببيانات الموقع وافتحي المكتبة في متصفح مستقل.";
+  if (code === "auth/network-request-failed") return "تعذر الاتصال بخدمة تسجيل الدخول. تحققي من الاتصال ومن عدم حجب خدمات Google وFirebase، ثم حاولي مجدداً.";
   if (code.includes("popup-blocked")) return "المتصفح منع نافذة Google. افتحي المكتبة مباشرة في Safari واسمحي بالنوافذ المنبثقة.";
   if (code.includes("permission-denied")) return "رفضت قواعد الأمان العملية. تأكدي من تسجيل الدخول وصحة بيانات المشاركة.";
   return "تعذرت العملية: " + (error?.message || "خطأ غير معروف");
@@ -56,8 +62,15 @@ tools.append(account, login, logout);
 form.before(tools);
 
 login.addEventListener("click", async () => {
-  try { await signInWithPopup(auth, googleProvider); }
+  if (login.disabled) return;
+  login.disabled = true;
+  say("أكملي تسجيل الدخول في نافذة Google، ثم انتظري عودتها إلى المكتبة.");
+  try {
+    await signInWithPopup(auth, googleProvider);
+    say("تم تسجيل الدخول بنجاح.");
+  }
   catch (error) { say(errorText(error)); }
+  finally { login.disabled = false; }
 });
 logout.addEventListener("click", async () => {
   try { await signOut(auth); }
