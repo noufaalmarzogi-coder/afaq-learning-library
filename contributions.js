@@ -293,7 +293,7 @@ function makeFilters(list, title) {
       if (card.hidden === matches) card.hidden = !matches;
       if (matches) visible++;
     });
-    count.textContent = cards.length
+    count.textContent = (search.value.trim() || grade.value || type.value) ? visible : cards.length
       ? "النتائج: " + visible + " من " + cards.length
         + (visible === 0 ? " — لا توجد مشاركات مطابقة." : "")
       : "عدد المشاركات: 0";
