@@ -197,7 +197,6 @@ function drawPost(record) {
     div.append(link);
     card.append(div);
   }
-  if (canManage(data)) card.append(managementButtons(record));
   return card;
 }
 function renderPublic(snapshot) {
