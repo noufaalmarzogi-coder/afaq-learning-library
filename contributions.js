@@ -248,7 +248,7 @@ function makeFilters(list, title) {
 
   const search = document.createElement("input");
   search.type = "search";
-  search.placeholder = "ابحثي بالعنوان أو اسم المعلمة";
+  search.placeholder = "ابحثي عن مشاركة...";
   search.setAttribute("aria-label", "البحث في " + title);
 
   function makeSelect(sourceId, allLabel) {
@@ -296,7 +296,7 @@ function makeFilters(list, title) {
     count.textContent = cards.length
       ? "النتائج: " + visible + " من " + cards.length
         + (visible === 0 ? " — لا توجد مشاركات مطابقة." : "")
-      : "لا توجد مشاركات منشورة حالياً.";
+      : "عدد المشاركات: 0";
   }
 
   [search, grade, type].forEach(control => {
