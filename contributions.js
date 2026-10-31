@@ -293,10 +293,10 @@ function makeFilters(list, title) {
       if (card.hidden === matches) card.hidden = !matches;
       if (matches) visible++;
     });
-    count.textContent = (search.value.trim() || grade.value || type.value) ? visible : cards.length
+    count.textContent = (search.value.trim() || grade.value || type.value)
       ? "النتائج: " + visible + " من " + cards.length
         + (visible === 0 ? " — لا توجد مشاركات مطابقة." : "")
-      : "عدد المشاركات: 0";
+      : "عدد المشاركات: " + cards.length;
   }
 
   [search, grade, type].forEach(control => {
