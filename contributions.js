@@ -13,11 +13,12 @@ const posts = collection(db, "contributions");
 let user = null;
 let stopPublic = null;
 let stopAdmin = null;
+let publicSnapshot = null;
 
 const css = document.createElement("style");
 css.textContent = `
 .afaq-tools{padding:16px;margin:15px 0;border:1px solid #b9dbdb;border-radius:16px;background:#f3fbfa}
-.afaq-tools button,.afaq-admin button{margin:5px;padding:9px 14px;border:0;border-radius:9px;background:#087b86;color:white;cursor:pointer;font:inherit}
+.afaq-tools button,.afaq-admin button,.afaq-post button{margin:5px;padding:9px 14px;border:0;border-radius:9px;background:#087b86;color:white;cursor:pointer;font:inherit}
 .afaq-posts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:18px}
 .afaq-post{border:1px solid #c9dddd;border-radius:15px;padding:16px;background:white;overflow-wrap:anywhere}
 .afaq-post h3{margin:8px 0;color:#075b65}
@@ -118,7 +119,69 @@ tools.after(adminPanel);
 function isResource(type) {
   return ["ورقة عمل أو نشاط", "عرض أو وسيلة تعليمية", "اختبار تفاعلي"].includes(type);
 }
-function drawPost(data) {
+function canManage(data) {
+  return !!user && (isAdmin() || (user.emailVerified && data.authorUid === user.uid));
+}
+
+function managementButtons(record) {
+  const data = record.data();
+  const actions = el("div");
+  const edit = el("button", "تعديل");
+  const remove = el("button", "حذف");
+  edit.type = remove.type = "button";
+  remove.style.background = "#a63232";
+  edit.addEventListener("click", async () => {
+    if (!canManage(data)) return;
+    const fields = [
+      ["teacher", "اسم المعلمة"], ["title", "عنوان المشاركة"],
+      ["description", "وصف المشاركة"], ["url", "الرابط (اختياري)"],
+      ["type", "نوع المشاركة"], ["grade", "الصف"]
+    ];
+    const changes = {};
+    for (const [key, label] of fields) {
+      const value = prompt(label, data[key] || "");
+      if (value === null) return;
+      changes[key] = value.trim();
+    }
+    if (changes.teacher.length < 2 || changes.teacher.length > 100
+      || changes.title.length < 3 || changes.title.length > 150
+      || changes.description.length < 10 || changes.description.length > 1500) {
+      alert("الاسم من حرفين إلى ١٠٠، والعنوان من ٣ إلى ١٥٠، والوصف من ١٠ إلى ١٥٠٠ حرف.");
+      return;
+    }
+    if (changes.url.length > 500 || (changes.url && !/^https:\/\//.test(changes.url))) {
+      alert("يجب أن يبدأ الرابط بـ https:// وألا يتجاوز ٥٠٠ حرف.");
+      return;
+    }
+    for (const [key, sourceId] of [["type", "type"], ["grade", "participationGrade"]]) {
+      const values = [...document.getElementById(sourceId).options].map(option => option.value);
+      if (!changes[key] || !values.includes(changes[key])) {
+        alert("يرجى استخدام أحد الخيارات المتاحة في نموذج المشاركة للنوع والصف.");
+        return;
+      }
+    }
+    edit.disabled = remove.disabled = true;
+    try {
+      await updateDoc(doc(db, "contributions", record.id), changes);
+      say("تم تعديل المشاركة بنجاح.");
+    } catch (error) { alert(errorText(error)); }
+    finally { edit.disabled = remove.disabled = false; }
+  });
+  remove.addEventListener("click", async () => {
+    if (!canManage(data) || !confirm("هل تريدين حذف المشاركة «" + data.title + "» نهائياً؟ لا يمكن التراجع.")) return;
+    edit.disabled = remove.disabled = true;
+    try {
+      await deleteDoc(doc(db, "contributions", record.id));
+      say("تم حذف المشاركة بنجاح.");
+    } catch (error) { alert(errorText(error)); }
+    finally { edit.disabled = remove.disabled = false; }
+  });
+  actions.append(edit, remove);
+  return actions;
+}
+
+function drawPost(record) {
+  const data = record.data();
   const card = el("article", undefined, "afaq-post");
   card.append(el("small", data.type + " • " + data.grade));
   card.append(el("h3", data.title));
@@ -134,15 +197,17 @@ function drawPost(data) {
     div.append(link);
     card.append(div);
   }
+  if (canManage(data)) card.append(managementButtons(record));
   return card;
 }
 function renderPublic(snapshot) {
+  publicSnapshot = snapshot;
   exchangeList.replaceChildren();
   resourceList.replaceChildren();
-  const items = snapshot.docs.map(d => d.data());
-  items.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  const items = [...snapshot.docs];
+  items.sort((a,b) => (b.data().createdAt?.seconds || 0) - (a.data().createdAt?.seconds || 0));
   for (const item of items) {
-    (isResource(item.type) ? resourceList : exchangeList).append(drawPost(item));
+    (isResource(item.data().type) ? resourceList : exchangeList).append(drawPost(item));
   }
   if (!exchangeList.childElementCount) exchangeList.append(el("p", "لا توجد مشاركات منشورة حالياً.", "afaq-muted"));
   if (!resourceList.childElementCount) resourceList.append(el("p", "لا توجد موارد منشورة حالياً.", "afaq-muted"));
@@ -164,16 +229,8 @@ function renderAdmin(snapshot) {
       catch (error) { alert(errorText(error)); }
       finally { toggle.disabled = false; }
     });
-    const remove = el("button", "حذف نهائي");
-    remove.type = "button";
-    remove.style.background = "#a63232";
-    remove.addEventListener("click", async () => {
-      if (!confirm("هل تريدين حذف هذه المشاركة نهائياً؟ لا يمكن التراجع.")) return;
-      remove.disabled = true;
-      try { await deleteDoc(doc(db,"contributions",record.id)); }
-      catch (error) { alert(errorText(error)); remove.disabled = false; }
-    });
-    item.append(toggle, remove);
+    if (isAdmin()) item.append(toggle);
+    item.append(managementButtons(record));
     adminList.append(item);
   });
 }
@@ -183,15 +240,19 @@ onSnapshot(query(posts, where("visible","==",true)), renderPublic,
 
 onAuthStateChanged(auth, current => {
   user = current;
+  if (publicSnapshot) renderPublic(publicSnapshot);
   login.hidden = !!user;
   logout.hidden = !user;
   account.textContent = user
     ? "تم تسجيل الدخول: " + (user.displayName || user.email || "مستخدمة Google")
     : "سجّلي الدخول بحساب Google لنشر مشاركة تعليمية.";
-  adminPanel.hidden = !isAdmin();
+  adminPanel.hidden = !user || (!isAdmin() && !user.emailVerified);
+  adminPanel.querySelector("h3").textContent = isAdmin() ? "لوحة إدارة المشاركات" : "إدارة مشاركاتي";
+  adminList.replaceChildren();
   if (stopAdmin) { stopAdmin(); stopAdmin = null; }
-  if (isAdmin()) {
-    stopAdmin = onSnapshot(posts, renderAdmin,
+  if (user && (isAdmin() || user.emailVerified)) {
+    const managedPosts = isAdmin() ? posts : query(posts, where("authorUid", "==", user.uid));
+    stopAdmin = onSnapshot(managedPosts, renderAdmin,
       error => adminList.replaceChildren(el("p",errorText(error))));
   }
 });
